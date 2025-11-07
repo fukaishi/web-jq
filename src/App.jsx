@@ -201,50 +201,7 @@ function App() {
       </header>
 
       <div className="container">
-        {/* 左側: 入力エリア */}
-        <div className="input-section">
-          <div className="section-header">
-            <h2>JSON入力</h2>
-            <div className="button-group">
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleFileUpload}
-                id="file-upload"
-                style={{ display: 'none' }}
-              />
-              <label htmlFor="file-upload" className="upload-button">
-                📁 ファイル
-              </label>
-            </div>
-          </div>
-
-          {/* サンプルデータ選択 */}
-          <div className="sample-data-section">
-            <label>サンプルデータ:</label>
-            <div className="sample-buttons">
-              {Object.entries(sampleData).map(([key, sample]) => (
-                <button
-                  key={key}
-                  onClick={() => loadSampleData(key)}
-                  className="sample-button"
-                  title={`${sample.name}を読み込む`}
-                >
-                  {sample.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <textarea
-            value={jsonInput}
-            onChange={(e) => setJsonInput(e.target.value)}
-            placeholder="JSONを入力するか、ファイルをアップロードしてください"
-            rows={15}
-          />
-        </div>
-
-        {/* 中央: クエリと操作 */}
+        {/* 上部: クエリと操作 */}
         <div className="query-section">
           <h2>操作を選択</h2>
 
@@ -343,16 +300,62 @@ function App() {
           </button>
         </div>
 
-        {/* 右側: 出力エリア */}
-        <div className="output-section">
-          <h2>出力結果</h2>
-          {error && <div className="error">{error}</div>}
-          <textarea
-            value={output}
-            readOnly
-            placeholder="結果がここに表示されます"
-            rows={15}
-          />
+        {/* 下部: 入力と出力 */}
+        <div className="input-output-wrapper">
+          {/* 左側: 入力エリア */}
+          <div className="input-section">
+            <div className="section-header">
+              <h2>JSON入力</h2>
+              <div className="button-group">
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  id="file-upload"
+                  style={{ display: 'none' }}
+                />
+                <label htmlFor="file-upload" className="upload-button">
+                  📁 ファイル
+                </label>
+              </div>
+            </div>
+
+            {/* サンプルデータ選択 */}
+            <div className="sample-data-section">
+              <label>サンプルデータ:</label>
+              <div className="sample-buttons">
+                {Object.entries(sampleData).map(([key, sample]) => (
+                  <button
+                    key={key}
+                    onClick={() => loadSampleData(key)}
+                    className="sample-button"
+                    title={`${sample.name}を読み込む`}
+                  >
+                    {sample.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <textarea
+              value={jsonInput}
+              onChange={(e) => setJsonInput(e.target.value)}
+              placeholder="JSONを入力するか、ファイルをアップロードしてください"
+              rows={20}
+            />
+          </div>
+
+          {/* 右側: 出力エリア */}
+          <div className="output-section">
+            <h2>出力結果</h2>
+            {error && <div className="error">{error}</div>}
+            <textarea
+              value={output}
+              readOnly
+              placeholder="結果がここに表示されます"
+              rows={20}
+            />
+          </div>
         </div>
       </div>
 
