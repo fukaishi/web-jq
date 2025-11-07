@@ -94,6 +94,8 @@ function App() {
   const [query, setQuery] = useState('.')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
+  const [loadingJq, setLoadingJq] = useState(true)
+  const [jqError, setJqError] = useState('')
   const [options, setOptions] = useState({
     compact: false,
     raw: false,
@@ -104,11 +106,24 @@ function App() {
 
   // jq-webの初期化
   useEffect(() => {
-    import('jq-web').then(jqModule => {
-      jqModule.default().then(jqInstance => {
-        setJq(jqInstance)
+    setLoadingJq(true)
+    setJqError('')
+
+    import('jq-web')
+      .then(jqModule => {
+        console.log('jq-web module loaded')
+        return jqModule.default()
       })
-    })
+      .then(jqInstance => {
+        console.log('jq instance created')
+        setJq(jqInstance)
+        setLoadingJq(false)
+      })
+      .catch(err => {
+        console.error('Failed to load jq-web:', err)
+        setJqError(`jqライブラリの読み込みに失敗しました: ${err.message}`)
+        setLoadingJq(false)
+      })
   }, [])
 
   const handleFileUpload = (event) => {
@@ -295,8 +310,10 @@ function App() {
             </label>
           </div>
 
-          <button onClick={executeQuery} disabled={!jq} className="execute-button">
-            {jq ? '▶ 実行' : '読み込み中...'}
+          {jqError && <div className="error">{jqError}</div>}
+
+          <button onClick={executeQuery} disabled={!jq || loadingJq} className="execute-button">
+            {loadingJq ? '⏳ jqライブラリ読み込み中...' : jq ? '▶ 実行' : '❌ ライブラリ読み込み失敗'}
           </button>
         </div>
 
