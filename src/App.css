@@ -45,10 +45,14 @@ header p {
 
 .input-section {
   grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .output-section {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .section-header {
@@ -113,6 +117,7 @@ h3 {
 /* テキストエリア */
 textarea {
   width: 100%;
+  max-width: 100%;
   padding: 12px;
   border: 2px solid #ccc;
   border-radius: 8px;
@@ -121,6 +126,7 @@ textarea {
   background-color: #1a1a1a;
   color: #fff;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 textarea:focus {
@@ -250,6 +256,7 @@ textarea:focus {
 
 input[type="text"] {
   width: 100%;
+  max-width: 100%;
   padding: 12px;
   border: 2px solid #ccc;
   border-radius: 8px;
@@ -257,6 +264,7 @@ input[type="text"] {
   font-size: 14px;
   background-color: #1a1a1a;
   color: #fff;
+  box-sizing: border-box;
 }
 
 input[type="text"]:focus {
