@@ -1,128 +1,33 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
-// クエリテンプレート
-const queryTemplates = [
-  { name: '全体表示', query: '.', description: 'JSON全体をそのまま表示' },
-  { name: 'すべてのキー', query: 'keys', description: 'オブジェクトのキー一覧を表示' },
-  { name: 'すべての値', query: 'values', description: 'オブジェクトの値一覧を表示' },
-  { name: '配列の長さ', query: 'length', description: '配列またはオブジェクトの要素数' },
-  { name: '配列を展開', query: '.[]', description: '配列の各要素を個別に出力' },
-  { name: '最初の要素', query: '.[0]', description: '配列の最初の要素を取得' },
-  { name: 'キーと値のペア', query: 'to_entries', description: 'オブジェクトをキーと値のペアに変換' },
-  { name: '重複を削除', query: 'unique', description: '配列から重複を削除' },
-  { name: '並べ替え', query: 'sort', description: '配列を昇順に並べ替え' },
-  { name: '逆順', query: 'reverse', description: '配列を逆順にする' },
-]
-
-// サンプルデータ
-const sampleData = {
-  simple: {
-    name: 'サンプル：シンプル',
-    data: {
-      name: 'John Doe',
-      age: 30,
-      email: 'john@example.com'
-    }
-  },
-  array: {
-    name: 'サンプル：配列',
-    data: [
-      { id: 1, name: 'Tokyo', population: 13960000 },
-      { id: 2, name: 'Osaka', population: 8840000 },
-      { id: 3, name: 'Nagoya', population: 2296000 }
-    ]
-  },
-  nested: {
-    name: 'サンプル：ネスト',
-    data: {
-      user: {
-        id: 123,
-        profile: {
-          name: 'Alice',
-          age: 25,
-          hobbies: ['reading', 'music', 'travel']
-        },
-        settings: {
-          theme: 'dark',
-          notifications: true
-        }
-      }
-    }
-  },
-  ecommerce: {
-    name: 'サンプル：ECサイト',
-    data: {
-      orders: [
-        {
-          orderId: 'ORD001',
-          customer: 'Taro Yamada',
-          items: [
-            { product: 'Laptop', price: 120000, quantity: 1 },
-            { product: 'Mouse', price: 2500, quantity: 2 }
-          ],
-          total: 125000,
-          status: 'shipped'
-        },
-        {
-          orderId: 'ORD002',
-          customer: 'Hanako Suzuki',
-          items: [
-            { product: 'Keyboard', price: 8000, quantity: 1 }
-          ],
-          total: 8000,
-          status: 'pending'
-        }
-      ]
-    }
-  }
-}
-
-// よく使う操作
-const quickActions = [
-  { name: '名前フィールド抽出', query: '.name', icon: '📝' },
-  { name: '配列の各名前', query: '.[].name', icon: '📋' },
-  { name: 'IDでソート', query: 'sort_by(.id)', icon: '🔢' },
-  { name: '年齢でフィルタ(>25)', query: 'map(select(.age > 25))', icon: '🔍' },
-  { name: '合計を計算', query: 'map(.price) | add', icon: '➕' },
-  { name: 'ユニークな値', query: 'unique_by(.name)', icon: '✨' },
-]
-
 function App() {
   const [jq, setJq] = useState(null)
-  const [jsonInput, setJsonInput] = useState(JSON.stringify(sampleData.simple.data, null, 2))
-  const [query, setQuery] = useState('.')
+  const [jsonInput, setJsonInput] = useState('')
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
   const [loadingJq, setLoadingJq] = useState(true)
-  const [jqError, setJqError] = useState('')
-  const [options, setOptions] = useState({
-    compact: false,
-    raw: false,
-    slurp: false
-  })
-  const [showTemplates, setShowTemplates] = useState(true)
-  const [showQuickActions, setShowQuickActions] = useState(true)
+
+  // クイックアクション用
+  const [fieldPath, setFieldPath] = useState('.')
+  const [operation, setOperation] = useState('show')
+  const [outputFormat, setOutputFormat] = useState('pretty')
+
+  // カスタムコマンド用
+  const [customCommand, setCustomCommand] = useState('')
 
   // jq-webの初期化
   useEffect(() => {
     setLoadingJq(true)
-    setJqError('')
-
     import('jq-web')
-      .then(jqModule => {
-        console.log('jq-web module loaded', jqModule)
-        // jqModule.defaultはPromiseなので、そのまま返す
-        return jqModule.default
-      })
+      .then(jqModule => jqModule.default)
       .then(jqInstance => {
-        console.log('jq instance created', jqInstance)
         setJq(jqInstance)
         setLoadingJq(false)
       })
       .catch(err => {
         console.error('Failed to load jq-web:', err)
-        setJqError(`jqライブラリの読み込みに失敗しました: ${err.message}`)
+        setError(`jqライブラリの読み込みに失敗: ${err.message}`)
         setLoadingJq(false)
       })
   }, [])
@@ -138,262 +43,246 @@ function App() {
     }
   }
 
-  const loadSampleData = (key) => {
-    setJsonInput(JSON.stringify(sampleData[key].data, null, 2))
-  }
-
-  const applyTemplate = (template) => {
-    setQuery(template.query)
-  }
-
-  const applyQuickAction = (action) => {
-    setQuery(action.query)
-    executeQueryWithQuery(action.query)
-  }
-
-  const executeQuery = async () => {
-    executeQueryWithQuery(query)
-  }
-
-  const executeQueryWithQuery = async (queryStr) => {
-    if (!jq) {
-      setError('jqライブラリがまだ読み込まれていません')
-      return
-    }
-
+  const analyzeStructure = async () => {
+    if (!jq) return
     setError('')
     setOutput('')
 
     try {
-      // JSON入力のパース
-      let inputData
-      try {
-        inputData = JSON.parse(jsonInput)
-      } catch (e) {
-        setError('入力JSONが無効です: ' + e.message)
-        return
-      }
+      const inputData = JSON.parse(jsonInput)
 
-      // slurpオプション処理
-      if (options.slurp && Array.isArray(inputData)) {
-        inputData = [inputData]
-      }
+      // 構造解析用のjqコマンド
+      const structureQuery = `
+        with_entries(
+          .value |=
+            (if type=="array" then
+               (if (length>0) and ((.[0]|type)=="object") then (.[0]|keys) else [] end)
+             elif type=="object" then
+               keys
+             else
+               null
+             end)
+        )
+      `
 
-      // jqクエリの実行
-      let result
-      if (options.raw) {
-        // raw出力の場合
-        result = await jq.raw(JSON.stringify(inputData), queryStr)
-      } else {
-        // JSON出力の場合
-        result = await jq.json(inputData, queryStr)
-
-        // compact オプション
-        if (options.compact) {
-          result = JSON.stringify(result)
-        } else {
-          result = JSON.stringify(result, null, 2)
-        }
-      }
-
-      setOutput(result)
+      const result = await jq.json(inputData, structureQuery)
+      setOutput(JSON.stringify(result, null, 2))
     } catch (err) {
-      setError('エラー: ' + err.message)
+      setError(`エラー: ${err.message}`)
     }
   }
 
-  const handleOptionChange = (option) => {
-    setOptions(prev => ({
-      ...prev,
-      [option]: !prev[option]
-    }))
+  const executeQuickAction = async () => {
+    if (!jq) return
+    setError('')
+    setOutput('')
+
+    try {
+      const inputData = JSON.parse(jsonInput)
+
+      let query = fieldPath
+
+      // 操作の適用
+      switch (operation) {
+        case 'show':
+          // そのまま表示
+          break
+        case 'keys':
+          query += ' | keys'
+          break
+        case 'length':
+          query += ' | length'
+          break
+        case 'first':
+          query += ' | .[0]'
+          break
+        case 'map_values':
+          query += ' | map(.)'
+          break
+        case 'unique':
+          query += ' | unique'
+          break
+        case 'sort':
+          query += ' | sort'
+          break
+        case 'group':
+          query += ' | group_by(.)'
+          break
+        case 'flatten':
+          query += ' | flatten'
+          break
+        default:
+          break
+      }
+
+      const result = await jq.json(inputData, query)
+
+      // 出力形式の適用
+      let outputStr
+      if (outputFormat === 'pretty') {
+        outputStr = JSON.stringify(result, null, 2)
+      } else if (outputFormat === 'compact') {
+        outputStr = JSON.stringify(result)
+      } else if (outputFormat === 'raw') {
+        outputStr = await jq.raw(JSON.stringify(inputData), query)
+      }
+
+      setOutput(outputStr)
+    } catch (err) {
+      setError(`エラー: ${err.message}`)
+    }
+  }
+
+  const executeCustomCommand = async () => {
+    if (!jq || !customCommand) return
+    setError('')
+    setOutput('')
+
+    try {
+      const inputData = JSON.parse(jsonInput)
+      const result = await jq.json(inputData, customCommand)
+      setOutput(JSON.stringify(result, null, 2))
+    } catch (err) {
+      setError(`エラー: ${err.message}`)
+    }
   }
 
   return (
     <div className="app">
       <header>
         <h1>jq Web Tool</h1>
-        <p>jqコマンド不要！ブラウザでJSONを簡単に操作</p>
+        <p>ブラウザでJSONを簡単に処理</p>
       </header>
 
-      <div className="container">
-        {/* 上部: クエリと操作 */}
-        <div className="query-section">
-          <h2>操作を選択</h2>
-
-          {/* クイックアクション */}
-          <div className="quick-actions-wrapper">
-            <div
-              className="section-toggle"
-              onClick={() => setShowQuickActions(!showQuickActions)}
-            >
-              <h3>⚡ クイックアクション {showQuickActions ? '▼' : '▶'}</h3>
-            </div>
-            {showQuickActions && (
-              <div className="quick-actions">
-                {quickActions.map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => applyQuickAction(action)}
-                    className="quick-action-button"
-                    title={action.query}
-                  >
-                    <span className="icon">{action.icon}</span>
-                    <span className="label">{action.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* クエリテンプレート */}
-          <div className="templates-wrapper">
-            <div
-              className="section-toggle"
-              onClick={() => setShowTemplates(!showTemplates)}
-            >
-              <h3>📚 クエリテンプレート {showTemplates ? '▼' : '▶'}</h3>
-            </div>
-            {showTemplates && (
-              <div className="templates">
-                {queryTemplates.map((template, index) => (
-                  <button
-                    key={index}
-                    onClick={() => applyTemplate(template)}
-                    className="template-button"
-                    title={template.description}
-                  >
-                    <span className="template-name">{template.name}</span>
-                    <code className="template-query">{template.query}</code>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* カスタムクエリ入力 */}
-          <div className="custom-query">
-            <label htmlFor="query-input">カスタムクエリ:</label>
+      <div className="main-content">
+        {/* JSON入力エリア */}
+        <section className="input-area">
+          <div className="input-header">
+            <h2>JSON入力</h2>
             <input
-              id="query-input"
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="jqクエリを入力 (例: .name, .cities[])"
+              type="file"
+              accept=".json"
+              onChange={handleFileUpload}
+              id="file-upload"
+              style={{ display: 'none' }}
             />
-          </div>
-
-          {/* オプション */}
-          <div className="options">
-            <label>
-              <input
-                type="checkbox"
-                checked={options.compact}
-                onChange={() => handleOptionChange('compact')}
-              />
-              Compact (-c)
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={options.raw}
-                onChange={() => handleOptionChange('raw')}
-              />
-              Raw (-r)
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={options.slurp}
-                onChange={() => handleOptionChange('slurp')}
-              />
-              Slurp (-s)
+            <label htmlFor="file-upload" className="upload-btn">
+              📁 ファイルをアップロード
             </label>
           </div>
+          <textarea
+            value={jsonInput}
+            onChange={(e) => setJsonInput(e.target.value)}
+            placeholder='JSONを入力または貼り付けてください。例：{"name": "太郎", "age": 30}'
+            rows={12}
+            className="json-input"
+          />
+        </section>
 
-          {jqError && <div className="error">{jqError}</div>}
-
-          <button onClick={executeQuery} disabled={!jq || loadingJq} className="execute-button">
-            {loadingJq ? '⏳ jqライブラリ読み込み中...' : jq ? '▶ 実行' : '❌ ライブラリ読み込み失敗'}
+        {/* 解析ボタン */}
+        <section className="analyze-section">
+          <button
+            onClick={analyzeStructure}
+            disabled={!jq || !jsonInput}
+            className="analyze-btn"
+          >
+            🔍 構造を解析
           </button>
-        </div>
+          <span className="help-text">JSONの構造（キー項目）を表示します</span>
+        </section>
 
-        {/* 下部: 入力と出力 */}
-        <div className="input-output-wrapper">
-          {/* 左側: 入力エリア */}
-          <div className="input-section">
-            <div className="section-header">
-              <h2>JSON入力</h2>
-              <div className="button-group">
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleFileUpload}
-                  id="file-upload"
-                  style={{ display: 'none' }}
-                />
-                <label htmlFor="file-upload" className="upload-button">
-                  📁 ファイル
-                </label>
-              </div>
+        {/* クイックアクション */}
+        <section className="quick-action-section">
+          <h2>クイックアクション</h2>
+          <div className="quick-action-form">
+            <div className="form-group">
+              <label>要素を指定:</label>
+              <input
+                type="text"
+                value={fieldPath}
+                onChange={(e) => setFieldPath(e.target.value)}
+                placeholder="例: . または .users または .items[0]"
+                className="field-input"
+              />
             </div>
 
-            {/* サンプルデータ選択 */}
-            <div className="sample-data-section">
-              <label>サンプルデータ:</label>
-              <div className="sample-buttons">
-                {Object.entries(sampleData).map(([key, sample]) => (
-                  <button
-                    key={key}
-                    onClick={() => loadSampleData(key)}
-                    className="sample-button"
-                    title={`${sample.name}を読み込む`}
-                  >
-                    {sample.name}
-                  </button>
-                ))}
-              </div>
+            <div className="form-group">
+              <label>操作を選択:</label>
+              <select
+                value={operation}
+                onChange={(e) => setOperation(e.target.value)}
+                className="operation-select"
+              >
+                <option value="show">そのまま表示</option>
+                <option value="keys">キー一覧を表示</option>
+                <option value="length">要素数を表示</option>
+                <option value="first">最初の要素</option>
+                <option value="map_values">各要素を変換</option>
+                <option value="unique">重複を削除</option>
+                <option value="sort">並べ替え</option>
+                <option value="group">グループ化</option>
+                <option value="flatten">配列を平坦化</option>
+              </select>
             </div>
 
-            <textarea
-              value={jsonInput}
-              onChange={(e) => setJsonInput(e.target.value)}
-              placeholder="JSONを入力するか、ファイルをアップロードしてください"
-              rows={20}
-            />
-          </div>
+            <div className="form-group">
+              <label>出力形式:</label>
+              <select
+                value={outputFormat}
+                onChange={(e) => setOutputFormat(e.target.value)}
+                className="format-select"
+              >
+                <option value="pretty">整形表示</option>
+                <option value="compact">圧縮表示</option>
+                <option value="raw">生文字列</option>
+              </select>
+            </div>
 
-          {/* 右側: 出力エリア */}
-          <div className="output-section">
-            <h2>出力結果</h2>
-            {error && <div className="error">{error}</div>}
-            <textarea
-              value={output}
-              readOnly
-              placeholder="結果がここに表示されます"
-              rows={20}
-            />
+            <button
+              onClick={executeQuickAction}
+              disabled={!jq || !jsonInput}
+              className="execute-btn"
+            >
+              ▶ 実行
+            </button>
           </div>
-        </div>
+        </section>
+
+        {/* カスタムコマンド */}
+        <section className="custom-command-section">
+          <h2>カスタムコマンド</h2>
+          <div className="custom-command-form">
+            <input
+              type="text"
+              value={customCommand}
+              onChange={(e) => setCustomCommand(e.target.value)}
+              placeholder="jqコマンドを入力 例: .[] | select(.age > 20)"
+              className="custom-input"
+            />
+            <button
+              onClick={executeCustomCommand}
+              disabled={!jq || !jsonInput || !customCommand}
+              className="execute-btn"
+            >
+              ▶ 実行
+            </button>
+          </div>
+        </section>
+
+        {/* 結果表示エリア */}
+        <section className="output-area">
+          <h2>結果</h2>
+          {error && <div className="error-message">{error}</div>}
+          {loadingJq && <div className="loading">jqライブラリ読み込み中...</div>}
+          <textarea
+            value={output}
+            readOnly
+            placeholder="結果がここに表示されます"
+            rows={15}
+            className="json-output"
+          />
+        </section>
       </div>
-
-      <footer>
-        <h3>💡 ヒント</h3>
-        <div className="tips">
-          <div className="tip">
-            <strong>1. サンプルを選ぶ:</strong> 上部のサンプルデータボタンから始めましょう
-          </div>
-          <div className="tip">
-            <strong>2. クイックアクションを試す:</strong> よく使う操作をワンクリックで実行
-          </div>
-          <div className="tip">
-            <strong>3. テンプレートを使う:</strong> 基本的なクエリパターンを選んで応用
-          </div>
-          <div className="tip">
-            <strong>4. カスタムクエリ:</strong> 慣れたら自分でクエリを書いてみましょう
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
