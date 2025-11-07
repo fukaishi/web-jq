@@ -111,11 +111,12 @@ function App() {
 
     import('jq-web')
       .then(jqModule => {
-        console.log('jq-web module loaded')
-        return jqModule.default()
+        console.log('jq-web module loaded', jqModule)
+        // jqModule.defaultはPromiseなので、そのまま返す
+        return jqModule.default
       })
       .then(jqInstance => {
-        console.log('jq instance created')
+        console.log('jq instance created', jqInstance)
         setJq(jqInstance)
         setLoadingJq(false)
       })
