@@ -2,6 +2,10 @@
 
 jqコマンドラインツールと同等の機能を持つWebアプリケーションです。ブラウザでJSONの変換、フィルタリング、集計などが簡単に行えます。
 
+## デモ
+
+GitHub Pagesでデモを公開しています: https://fukaishi.github.io/web-jq/
+
 ## 特徴
 
 - **ファイルアップロード**: JSONファイルを直接アップロード
@@ -89,6 +93,22 @@ npm run preview
 - **React**: UIフレームワーク
 - **Vite**: ビルドツール
 - **jq-web**: WebAssembly版jqライブラリ
+
+## デプロイ
+
+このプロジェクトはGitHub Actionsを使用して自動的にGitHub Pagesにデプロイされます。
+
+### GitHub Pagesの設定
+
+1. GitHubリポジトリの **Settings** → **Pages** に移動
+2. **Source** を **GitHub Actions** に設定
+3. `main`ブランチにプッシュすると自動的にビルド＆デプロイされます
+
+### 手動デプロイ
+
+ワークフローは手動でもトリガーできます:
+- リポジトリの **Actions** タブから **Deploy to GitHub Pages** を選択
+- **Run workflow** をクリック
 
 ## 制限事項
 
