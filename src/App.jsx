@@ -7,13 +7,6 @@ function App() {
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
   const [loadingJq, setLoadingJq] = useState(true)
-
-  // クイックアクション用
-  const [fieldPath, setFieldPath] = useState('.')
-  const [operation, setOperation] = useState('show')
-  const [outputFormat, setOutputFormat] = useState('pretty')
-
-  // カスタムコマンド用
   const [customCommand, setCustomCommand] = useState('')
 
   // jq-webの初期化
@@ -43,94 +36,48 @@ function App() {
     }
   }
 
-  const analyzeStructure = async () => {
-    if (!jq) return
-    setError('')
-    setOutput('')
+  // クイックアクションのクエリ展開
+  const applyQuickAction = (actionType) => {
+    let query = ''
 
-    try {
-      const inputData = JSON.parse(jsonInput)
+    switch (actionType) {
+      case 'analyze':
+        query = `with_entries(
+  .value |=
+    (if type=="array" then
+       (if (length>0) and ((.[0]|type)=="object") then (.[0]|keys) else [] end)
+     elif type=="object" then
+       keys
+     else
+       null
+     end)
+)`
+        break
 
-      // 構造解析用のjqコマンド
-      const structureQuery = `
-        with_entries(
-          .value |=
-            (if type=="array" then
-               (if (length>0) and ((.[0]|type)=="object") then (.[0]|keys) else [] end)
-             elif type=="object" then
-               keys
-             else
-               null
-             end)
-        )
-      `
+      case 'filter':
+        query = '.items[] | select(.id == 2)'
+        break
 
-      const result = await jq.json(inputData, structureQuery)
-      setOutput(JSON.stringify(result, null, 2))
-    } catch (err) {
-      setError(`エラー: ${err.message}`)
+      case 'sort':
+        query = '.items | sort_by(.id)'
+        break
+
+      case 'aggregate':
+        query = `.items
+| group_by(.team)
+| map({
+    team: .[0].team,
+    count: length,
+    sum: (map(.score) | add),
+    avg: ((map(.score) | add) / length)
+  })`
+        break
+
+      default:
+        break
     }
-  }
 
-  const executeQuickAction = async () => {
-    if (!jq) return
-    setError('')
-    setOutput('')
-
-    try {
-      const inputData = JSON.parse(jsonInput)
-
-      let query = fieldPath
-
-      // 操作の適用
-      switch (operation) {
-        case 'show':
-          // そのまま表示
-          break
-        case 'keys':
-          query += ' | keys'
-          break
-        case 'length':
-          query += ' | length'
-          break
-        case 'first':
-          query += ' | .[0]'
-          break
-        case 'map_values':
-          query += ' | map(.)'
-          break
-        case 'unique':
-          query += ' | unique'
-          break
-        case 'sort':
-          query += ' | sort'
-          break
-        case 'group':
-          query += ' | group_by(.)'
-          break
-        case 'flatten':
-          query += ' | flatten'
-          break
-        default:
-          break
-      }
-
-      const result = await jq.json(inputData, query)
-
-      // 出力形式の適用
-      let outputStr
-      if (outputFormat === 'pretty') {
-        outputStr = JSON.stringify(result, null, 2)
-      } else if (outputFormat === 'compact') {
-        outputStr = JSON.stringify(result)
-      } else if (outputFormat === 'raw') {
-        outputStr = await jq.raw(JSON.stringify(inputData), query)
-      }
-
-      setOutput(outputStr)
-    } catch (err) {
-      setError(`エラー: ${err.message}`)
-    }
+    setCustomCommand(query)
   }
 
   const executeCustomCommand = async () => {
@@ -179,71 +126,44 @@ function App() {
           />
         </section>
 
-        {/* 解析ボタン */}
-        <section className="analyze-section">
-          <button
-            onClick={analyzeStructure}
-            disabled={!jq || !jsonInput}
-            className="analyze-btn"
-          >
-            🔍 構造を解析
-          </button>
-          <span className="help-text">JSONの構造（キー項目）を表示します</span>
-        </section>
-
         {/* クイックアクション */}
         <section className="quick-action-section">
           <h2>クイックアクション</h2>
-          <div className="quick-action-form">
-            <div className="form-group">
-              <label>要素を指定:</label>
-              <input
-                type="text"
-                value={fieldPath}
-                onChange={(e) => setFieldPath(e.target.value)}
-                placeholder="例: . または .users または .items[0]"
-                className="field-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>操作を選択:</label>
-              <select
-                value={operation}
-                onChange={(e) => setOperation(e.target.value)}
-                className="operation-select"
-              >
-                <option value="show">そのまま表示</option>
-                <option value="keys">キー一覧を表示</option>
-                <option value="length">要素数を表示</option>
-                <option value="first">最初の要素</option>
-                <option value="map_values">各要素を変換</option>
-                <option value="unique">重複を削除</option>
-                <option value="sort">並べ替え</option>
-                <option value="group">グループ化</option>
-                <option value="flatten">配列を平坦化</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>出力形式:</label>
-              <select
-                value={outputFormat}
-                onChange={(e) => setOutputFormat(e.target.value)}
-                className="format-select"
-              >
-                <option value="pretty">整形表示</option>
-                <option value="compact">圧縮表示</option>
-                <option value="raw">生文字列</option>
-              </select>
-            </div>
+          <div className="quick-actions">
+            <button
+              onClick={() => applyQuickAction('analyze')}
+              disabled={!jq || !jsonInput}
+              className="action-btn analyze-btn"
+            >
+              <span className="action-icon">🔍</span>
+              <span className="action-label">構造解析</span>
+            </button>
 
             <button
-              onClick={executeQuickAction}
+              onClick={() => applyQuickAction('filter')}
               disabled={!jq || !jsonInput}
-              className="execute-btn"
+              className="action-btn filter-btn"
             >
-              ▶ 実行
+              <span className="action-icon">🔎</span>
+              <span className="action-label">itemsの絞り込み</span>
+            </button>
+
+            <button
+              onClick={() => applyQuickAction('sort')}
+              disabled={!jq || !jsonInput}
+              className="action-btn sort-btn"
+            >
+              <span className="action-icon">🔢</span>
+              <span className="action-label">itemsのソート</span>
+            </button>
+
+            <button
+              onClick={() => applyQuickAction('aggregate')}
+              disabled={!jq || !jsonInput}
+              className="action-btn aggregate-btn"
+            >
+              <span className="action-icon">📊</span>
+              <span className="action-label">itemsの集計</span>
             </button>
           </div>
         </section>
@@ -251,22 +171,20 @@ function App() {
         {/* カスタムコマンド */}
         <section className="custom-command-section">
           <h2>カスタムコマンド</h2>
-          <div className="custom-command-form">
-            <input
-              type="text"
-              value={customCommand}
-              onChange={(e) => setCustomCommand(e.target.value)}
-              placeholder="jqコマンドを入力 例: .[] | select(.age > 20)"
-              className="custom-input"
-            />
-            <button
-              onClick={executeCustomCommand}
-              disabled={!jq || !jsonInput || !customCommand}
-              className="execute-btn"
-            >
-              ▶ 実行
-            </button>
-          </div>
+          <textarea
+            value={customCommand}
+            onChange={(e) => setCustomCommand(e.target.value)}
+            placeholder="jqコマンドを入力 例: .[] | select(.age > 20)"
+            className="custom-command-textarea"
+            rows={8}
+          />
+          <button
+            onClick={executeCustomCommand}
+            disabled={!jq || !jsonInput || !customCommand}
+            className="execute-btn"
+          >
+            ▶ 実行
+          </button>
         </section>
 
         {/* 結果表示エリア */}
