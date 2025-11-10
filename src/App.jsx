@@ -4,10 +4,12 @@ import './App.css'
 function App() {
   const [jq, setJq] = useState(null)
   const [jsonInput, setJsonInput] = useState('')
+  const [rawResult, setRawResult] = useState(null) // 元の結果を保持
   const [output, setOutput] = useState('')
   const [error, setError] = useState('')
   const [loadingJq, setLoadingJq] = useState(true)
   const [customCommand, setCustomCommand] = useState('')
+  const [outputFormat, setOutputFormat] = useState('json-pretty') // 出力形式
 
   // jq-webの初期化
   useEffect(() => {
@@ -80,6 +82,44 @@ function App() {
     setCustomCommand(query)
   }
 
+  // 出力形式の変換
+  const formatOutput = async (result, format) => {
+    if (!jq) return ''
+
+    try {
+      switch (format) {
+        case 'json-pretty':
+          return JSON.stringify(result, null, 2)
+
+        case 'json-compact':
+          return JSON.stringify(result)
+
+        case 'csv':
+          // jqの@csvを使用してCSV変換
+          if (Array.isArray(result)) {
+            const csvQuery = 'map(if type == "object" then to_entries | map(.value) else . end) | .[] | @csv'
+            return await jq.raw(JSON.stringify(result), csvQuery)
+          } else {
+            return '@csv形式に変換するには配列が必要です'
+          }
+
+        case 'tsv':
+          // jqの@tsvを使用してTSV変換
+          if (Array.isArray(result)) {
+            const tsvQuery = 'map(if type == "object" then to_entries | map(.value) else . end) | .[] | @tsv'
+            return await jq.raw(JSON.stringify(result), tsvQuery)
+          } else {
+            return '@tsv形式に変換するには配列が必要です'
+          }
+
+        default:
+          return JSON.stringify(result, null, 2)
+      }
+    } catch (err) {
+      return `フォーマット変換エラー: ${err.message}`
+    }
+  }
+
   const executeCustomCommand = async () => {
     if (!jq || !customCommand) return
     setError('')
@@ -88,11 +128,22 @@ function App() {
     try {
       const inputData = JSON.parse(jsonInput)
       const result = await jq.json(inputData, customCommand)
-      setOutput(JSON.stringify(result, null, 2))
+      setRawResult(result)
+
+      // 選択された形式で出力
+      const formatted = await formatOutput(result, outputFormat)
+      setOutput(formatted)
     } catch (err) {
       setError(`エラー: ${err.message}`)
     }
   }
+
+  // 出力形式が変更されたときに再フォーマット
+  useEffect(() => {
+    if (rawResult !== null) {
+      formatOutput(rawResult, outputFormat).then(setOutput)
+    }
+  }, [outputFormat, rawResult])
 
   return (
     <div className="app">
@@ -189,7 +240,35 @@ function App() {
 
         {/* 結果表示エリア */}
         <section className="output-area">
-          <h2>結果</h2>
+          <div className="output-header">
+            <h2>結果</h2>
+            <div className="output-tabs">
+              <button
+                className={`tab-btn ${outputFormat === 'json-pretty' ? 'active' : ''}`}
+                onClick={() => setOutputFormat('json-pretty')}
+              >
+                JSON（整形）
+              </button>
+              <button
+                className={`tab-btn ${outputFormat === 'json-compact' ? 'active' : ''}`}
+                onClick={() => setOutputFormat('json-compact')}
+              >
+                JSON（圧縮）
+              </button>
+              <button
+                className={`tab-btn ${outputFormat === 'csv' ? 'active' : ''}`}
+                onClick={() => setOutputFormat('csv')}
+              >
+                CSV
+              </button>
+              <button
+                className={`tab-btn ${outputFormat === 'tsv' ? 'active' : ''}`}
+                onClick={() => setOutputFormat('tsv')}
+              >
+                TSV
+              </button>
+            </div>
+          </div>
           {error && <div className="error-message">{error}</div>}
           {loadingJq && <div className="loading">jqライブラリ読み込み中...</div>}
           <textarea
