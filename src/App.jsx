@@ -160,8 +160,23 @@ function App() {
     setOutput('')
 
     try {
-      const inputData = JSON.parse(jsonInput)
-      const result = await jq.json(inputData, customCommand)
+      // jq.raw()を使用して改行区切りのJSON文字列を取得
+      const rawOutput = await jq.raw(jsonInput, customCommand)
+
+      // 改行で分割して各JSON値をパース
+      const lines = rawOutput.trim().split('\n').filter(line => line.trim())
+
+      let result
+      if (lines.length === 0) {
+        result = null
+      } else if (lines.length === 1) {
+        // 単一の結果の場合
+        result = JSON.parse(lines[0])
+      } else {
+        // 複数の結果の場合は配列として扱う
+        result = lines.map(line => JSON.parse(line))
+      }
+
       setRawResult(result)
 
       // 選択された形式で出力
