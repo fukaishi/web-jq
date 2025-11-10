@@ -163,6 +163,10 @@ function App() {
       // jq.raw()を使用してJSON文字列を取得
       const rawOutput = await jq.raw(jsonInput, customCommand)
 
+      // デバッグ用: rawOutputの内容を確認
+      console.log('Raw output from jq:', rawOutput)
+      console.log('Output length:', rawOutput.length)
+
       let result
 
       // まず、全体を1つのJSONとしてパースしてみる
@@ -170,16 +174,34 @@ function App() {
         result = JSON.parse(rawOutput)
       } catch (e) {
         // 失敗した場合は、改行区切りの複数のJSON値として扱う
-        // コンパクト形式（1行1JSON）を前提とする
-        const lines = rawOutput.trim().split('\n').filter(line => line.trim())
+        const lines = rawOutput.trim().split('\n')
 
-        if (lines.length === 0) {
+        // 空行を除外して、各行をパース
+        const validLines = []
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (trimmed) {
+            validLines.push(trimmed)
+          }
+        }
+
+        if (validLines.length === 0) {
           result = null
-        } else if (lines.length === 1) {
-          result = JSON.parse(lines[0])
+        } else if (validLines.length === 1) {
+          try {
+            result = JSON.parse(validLines[0])
+          } catch (parseErr) {
+            throw new Error(`JSON解析エラー: ${parseErr.message}`)
+          }
         } else {
           // 複数の結果の場合は配列として扱う
-          result = lines.map(line => JSON.parse(line))
+          result = validLines.map((line, index) => {
+            try {
+              return JSON.parse(line)
+            } catch (parseErr) {
+              throw new Error(`行${index + 1}のJSON解析エラー: ${parseErr.message}`)
+            }
+          })
         }
       }
 
