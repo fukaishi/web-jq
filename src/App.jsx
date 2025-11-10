@@ -97,8 +97,25 @@ function App() {
         case 'csv':
           // jqの@csvを使用してCSV変換
           if (Array.isArray(result)) {
-            const csvQuery = 'map(if type == "object" then to_entries | map(.value) else . end) | .[] | @csv'
-            return await jq.raw(JSON.stringify(result), csvQuery)
+            if (result.length === 0) {
+              return ''
+            }
+
+            const firstElement = result[0]
+
+            if (Array.isArray(firstElement)) {
+              // 配列の配列の場合: [[1, "Alice"], [2, "Bob"]]
+              const csvQuery = '.[] | @csv'
+              return await jq.raw(JSON.stringify(result), csvQuery)
+            } else if (typeof firstElement === 'object' && firstElement !== null) {
+              // オブジェクトの配列の場合: [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]
+              const csvQuery = 'map(to_entries | map(.value)) | .[] | @csv'
+              return await jq.raw(JSON.stringify(result), csvQuery)
+            } else {
+              // 単一レベルの配列の場合: [2, "Bob", 18, "B"]
+              const csvQuery = '@csv'
+              return await jq.raw(JSON.stringify(result), csvQuery)
+            }
           } else {
             return '@csv形式に変換するには配列が必要です'
           }
@@ -106,8 +123,25 @@ function App() {
         case 'tsv':
           // jqの@tsvを使用してTSV変換
           if (Array.isArray(result)) {
-            const tsvQuery = 'map(if type == "object" then to_entries | map(.value) else . end) | .[] | @tsv'
-            return await jq.raw(JSON.stringify(result), tsvQuery)
+            if (result.length === 0) {
+              return ''
+            }
+
+            const firstElement = result[0]
+
+            if (Array.isArray(firstElement)) {
+              // 配列の配列の場合: [[1, "Alice"], [2, "Bob"]]
+              const tsvQuery = '.[] | @tsv'
+              return await jq.raw(JSON.stringify(result), tsvQuery)
+            } else if (typeof firstElement === 'object' && firstElement !== null) {
+              // オブジェクトの配列の場合: [{id: 1, name: "Alice"}, {id: 2, name: "Bob"}]
+              const tsvQuery = 'map(to_entries | map(.value)) | .[] | @tsv'
+              return await jq.raw(JSON.stringify(result), tsvQuery)
+            } else {
+              // 単一レベルの配列の場合: [2, "Bob", 18, "B"]
+              const tsvQuery = '@tsv'
+              return await jq.raw(JSON.stringify(result), tsvQuery)
+            }
           } else {
             return '@tsv形式に変換するには配列が必要です'
           }
