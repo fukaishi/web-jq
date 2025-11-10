@@ -117,7 +117,12 @@ function App() {
               return await jq.raw(JSON.stringify(result), csvQuery)
             }
           } else {
-            return '@csv形式に変換するには配列が必要です'
+            return `CSV形式に変換するには配列が必要です。
+
+配列にする必要があります。
+例：
+| map([ .id, .name, .score, .team ])
+| map([ .id, .name, .score, (.tags|join("|")), .team ])`
           }
 
         case 'tsv':
@@ -143,13 +148,27 @@ function App() {
               return await jq.raw(JSON.stringify(result), tsvQuery)
             }
           } else {
-            return '@tsv形式に変換するには配列が必要です'
+            return `TSV形式に変換するには配列が必要です。
+
+配列にする必要があります。
+例：
+| map([ .id, .name, .score, .team ])
+| map([ .id, .name, .score, (.tags|join("|")), .team ])`
           }
 
         default:
           return JSON.stringify(result, null, 2)
       }
     } catch (err) {
+      // CSV/TSVエラーの場合は、ヒントを追加
+      if (format === 'csv' || format === 'tsv') {
+        return `フォーマット変換エラー: ${err.message}
+
+配列にする必要があります。
+例：
+| map([ .id, .name, .score, .team ])
+| map([ .id, .name, .score, (.tags|join("|")), .team ])`
+      }
       return `フォーマット変換エラー: ${err.message}`
     }
   }
