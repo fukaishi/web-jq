@@ -160,21 +160,27 @@ function App() {
     setOutput('')
 
     try {
-      // jq.raw()を使用して改行区切りのJSON文字列を取得
+      // jq.raw()を使用してJSON文字列を取得
       const rawOutput = await jq.raw(jsonInput, customCommand)
 
-      // 改行で分割して各JSON値をパース
-      const lines = rawOutput.trim().split('\n').filter(line => line.trim())
-
       let result
-      if (lines.length === 0) {
-        result = null
-      } else if (lines.length === 1) {
-        // 単一の結果の場合
-        result = JSON.parse(lines[0])
-      } else {
-        // 複数の結果の場合は配列として扱う
-        result = lines.map(line => JSON.parse(line))
+
+      // まず、全体を1つのJSONとしてパースしてみる
+      try {
+        result = JSON.parse(rawOutput)
+      } catch (e) {
+        // 失敗した場合は、改行区切りの複数のJSON値として扱う
+        // コンパクト形式（1行1JSON）を前提とする
+        const lines = rawOutput.trim().split('\n').filter(line => line.trim())
+
+        if (lines.length === 0) {
+          result = null
+        } else if (lines.length === 1) {
+          result = JSON.parse(lines[0])
+        } else {
+          // 複数の結果の場合は配列として扱う
+          result = lines.map(line => JSON.parse(line))
+        }
       }
 
       setRawResult(result)
