@@ -57,7 +57,7 @@ function App() {
         break
 
       case 'filter':
-        query = '.items[] | select(.id == 2)'
+        query = '.items | map(select(.id == 2))'
         break
 
       case 'sort':
